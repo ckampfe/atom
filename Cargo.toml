@@ -1,0 +1,13 @@
+[package]
+name = "atom"
+version = "0.1.0"
+authors = ["Clark Kampfe <clark.kampfe@gmail.com>"]
+
+[dependencies]
+
+[dev-dependencies]
+bencher = "0.1.5"
+
+[[bench]]
+name = "bench"
+harness = false
