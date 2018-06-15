@@ -103,9 +103,6 @@ impl<T: Clone> Atom<T> {
             let v = &*t_ptr;
 
             v.clone()
-            // let v = *value.load(Ordering::SeqCst).clone();
-            // v
-            // *value.load(Ordering::SeqCst).clone()
         }
     }
 
@@ -127,12 +124,6 @@ impl<T: Clone> Atom<T> {
 
     pub fn swap<'a>(&self, f: &'a Fn(&T) -> T) -> T {
         unsafe {
-            // let value = &self.value;
-            // let v = &self.value.load(Ordering::SeqCst);
-            // let v_val = ptr::read(v);
-            // let res = Box::into_raw(Box::new(f(*v_val)));
-            // let p = value.compare_and_swap(*v, res, Ordering::SeqCst);
-
             loop {
                 let value = &self.value;
                 let v = &self.value.load(Ordering::SeqCst);
@@ -144,7 +135,6 @@ impl<T: Clone> Atom<T> {
                     return (*res).clone()
                 }
             }
-
         }
     }
 }
