@@ -3,7 +3,7 @@ use std::ptr;
 use std::sync::atomic::{AtomicPtr, Ordering};
 
 pub struct Atom<T: Clone> {
-    value: AtomicPtr<T>,
+    atomic_pointer: AtomicPtr<T>,
 }
 
 unsafe impl<T: Clone> Sync for Atom<T> {}
@@ -11,50 +11,40 @@ unsafe impl<T: Clone> Send for Atom<T> {}
 
 impl<T: Clone> Atom<T> {
     pub fn new(value: T) -> Atom<T> {
-        let v = Box::new(value);
-        let rp = Box::into_raw(v);
+        let boxed = Box::new(value);
+        let raw_pointer = Box::into_raw(boxed);
         Atom {
-            value: AtomicPtr::new(rp),
+            atomic_pointer: AtomicPtr::new(raw_pointer),
         }
     }
 
     pub fn deref(&self) -> T {
-        unsafe {
-            let value = &self.value;
-            let t_ptr = value.load(Ordering::SeqCst);
-            let v = &*t_ptr;
-
-            v.clone()
-        }
+        let current = &self.atomic_pointer.load(Ordering::SeqCst);
+        unsafe { ptr::read(*current) }
     }
 
-    pub fn put<'a>(&self, f: &'a Fn(&T) -> T) {
-        unsafe {
-            loop {
-                let value = &self.value;
-                let v = &self.value.load(Ordering::SeqCst);
-                let v_val = ptr::read(v);
-                let res = Box::into_raw(Box::new(f(&*v_val)));
-                let p = value.compare_and_swap(*v, res, Ordering::SeqCst);
-
-                if p == *v {
-                    return;
-                }
-            }
-        }
+    pub fn reset(&self, new_value: T) -> T {
+        let mut mutable_clone = new_value.clone();
+        &self
+            .atomic_pointer
+            .store(&mut mutable_clone, Ordering::SeqCst);
+        new_value
     }
 
-    pub fn swap<'a>(&self, f: &'a Fn(&T) -> T) -> T {
+    pub fn swap(&self, f: &Fn(&T) -> T) -> T {
         unsafe {
             loop {
-                let value = &self.value;
-                let v = &self.value.load(Ordering::SeqCst);
-                let v_val = ptr::read(v);
-                let res = Box::into_raw(Box::new(f(&*v_val)));
-                let p = value.compare_and_swap(*v, res, Ordering::SeqCst);
+                let current = &self.atomic_pointer.load(Ordering::SeqCst);
+                let fn_application_result = Box::into_raw(Box::new(f(&**current)));
+                let old = &self.atomic_pointer.compare_and_swap(
+                    *current,
+                    fn_application_result,
+                    Ordering::SeqCst,
+                );
 
-                if p == *v {
-                    return (*res).clone();
+                // if old == current, it means value was updated
+                if old == current {
+                    return (*fn_application_result).clone();
                 }
             }
         }
@@ -67,6 +57,24 @@ mod tests {
     use rand;
     use rand::Rng;
     use std::thread;
+
+    #[test]
+    fn derefs() {
+        let atom = Atom::new(5);
+        assert_eq!(atom.deref(), 5);
+    }
+
+    #[test]
+    fn resets() {
+        let atom = Atom::new(5);
+        assert_eq!(atom.reset(10), 10);
+    }
+
+    #[test]
+    fn swaps() {
+        let atom = Atom::new(5);
+        assert_eq!(atom.swap(&|previous| previous + 1), 6);
+    }
 
     #[test]
     fn it_works() {
