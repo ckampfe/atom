@@ -39,11 +39,10 @@ fn atomic_swap_int(bench: &mut Bencher) {
         let n = 20;
 
         for _ in 0..n {
-            let mut arc = Arc::clone(&atom);
+            let arc = Arc::clone(&atom);
 
             let thread_handle = thread::spawn(move || {
                 let new_value = arc.swap(&|x| x + 1);
-                // println!("swap return: {}", new_value);
                 new_value
             });
 
@@ -64,7 +63,7 @@ fn atomic_put_int(bench: &mut Bencher) {
         let n = 20;
 
         for _ in 0..n {
-            let mut arc = Arc::clone(&atom);
+            let arc = Arc::clone(&atom);
 
             let thread_handle = thread::spawn(move || {
                 let new_value = arc.put(&|x| x + 1);
@@ -96,7 +95,7 @@ fn atomic_put_hm(bench: &mut Bencher) {
          ];
 
         for k in keys {
-            let mut arc = Arc::clone(&atom);
+            let arc = Arc::clone(&atom);
 
             let thread_handle = thread::spawn(move || {
                 let new_value = arc.swap(&|hm: &HashMap<_,_>| {
